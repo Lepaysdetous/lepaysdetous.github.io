@@ -181,7 +181,7 @@ const VENDUES = {};
 // Statistiques de visites (GoatCounter) : code du compte, ex. "lepaysdetous" → https://lepaysdetous.goatcounter.com
 const GOATCOUNTER = "";
 // Serveur qui crée le paiement avec le panier exact (Vercel). Vide = anciens liens Stripe (options à recocher).
-const API_PANIER = "";
+const API_PANIER = "https://lepaysdetous.vercel.app/api/panier";
 /* ============================ */
 const stat = (nom) => { try { window.goatcounter && window.goatcounter.count && window.goatcounter.count({ path: nom, title: nom, event: true }); } catch (e) {} };
 if (GOATCOUNTER && location.hostname.endsWith('github.io')) { const sc = document.createElement('script'); sc.async = true; sc.src = 'https://gc.zgo.at/count.js'; sc.dataset.goatcounter = `https://${GOATCOUNTER}.goatcounter.com/count`; document.head.appendChild(sc); }
