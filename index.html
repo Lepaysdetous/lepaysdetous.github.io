@@ -177,7 +177,11 @@ footer{font-size:14px;color:var(--muted)}
 const LIENS = { cabane: "https://buy.stripe.com/5kQ7sLdRQdhe5Sv6B1bAs00", petite: "https://buy.stripe.com/fZu28rbJIa525Sv7F5bAs01", grande: "https://buy.stripe.com/6oUbJ1cNM4KIgx99NdbAs02", villa: "https://buy.stripe.com/3cI14n8xwgtqcgT9NdbAs03" };
 // Parcelles déjà vendues : { numéro: "pseudo" }
 const VENDUES = {};
+// Statistiques de visites (GoatCounter) : code du compte, ex. "lepaysdetous" → https://lepaysdetous.goatcounter.com
+const GOATCOUNTER = "";
 /* ============================ */
+const stat = (nom) => { try { window.goatcounter && window.goatcounter.count && window.goatcounter.count({ path: nom, title: nom, event: true }); } catch (e) {} };
+if (GOATCOUNTER && location.hostname.endsWith('github.io')) { const sc = document.createElement('script'); sc.async = true; sc.src = 'https://gc.zgo.at/count.js'; sc.dataset.goatcounter = `https://${GOATCOUNTER}.goatcounter.com/count`; document.head.appendChild(sc); }
 
 const ZONES = [
   { id:'foret', nom:'Lisière de la forêt', sup:0, de:1, a:16 },
@@ -234,7 +238,7 @@ function carte() {
     for (let n = z.de; n <= z.a; n++) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'lot ' + z.id;
       if (VENDUES[n]) { b.classList.add('vendu'); b.textContent = VENDUES[n]; b.disabled = true; b.title = 'Vendu à ' + VENDUES[n]; }
-      else { b.textContent = n; b.setAttribute('aria-label', `Parcelle ${n}, ${z.nom}`); b.setAttribute('aria-pressed', etat.lot === n); b.addEventListener('click', () => { etat.lot = n; maj(); }); }
+      else { b.textContent = n; b.setAttribute('aria-label', `Parcelle ${n}, ${z.nom}`); b.setAttribute('aria-pressed', etat.lot === n); b.addEventListener('click', () => { etat.lot = n; maj(); stat('parcelle-' + z.id); }); }
       g.appendChild(b);
     }
     d.appendChild(g); c.appendChild(d);
@@ -249,7 +253,7 @@ function maisons() {
   for (const m of MAISONS) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'choix-carte'; b.setAttribute('aria-pressed', etat.maison === m.id);
     b.innerHTML = (m.tag ? `<span class="tag">${m.tag}</span>` : '') + `<h3>${m.nom}</h3><span class="p">${eur(m.base + hausse)}</span><small>${m.txt}</small>`;
-    b.addEventListener('click', () => { etat.maison = m.id; maj(); window.montrer && window.montrer('maison', m.nom); });
+    b.addEventListener('click', () => { etat.maison = m.id; maj(); window.montrer && window.montrer('maison', m.nom); stat('maison-' + m.id); });
     c.appendChild(b);
   }
 }
@@ -259,7 +263,7 @@ function options() {
   for (const o of OPTIONS) {
     const l = document.createElement('label'); l.className = 'opt';
     l.innerHTML = `<input type="checkbox" id="opt-${o.id}" ${etat.options.has(o.id) ? 'checked' : ''}><span><b>${o.nom}</b><br><small class="note">${o.txt}</small></span><b>${eur(o.prix)}</b>`;
-    l.querySelector('input').addEventListener('change', e => { e.target.checked ? etat.options.add(o.id) : etat.options.delete(o.id); maj(); window.montrer && window.montrer(o.id, (e.target.checked ? '+ ' : '− ') + o.nom); });
+    l.querySelector('input').addEventListener('change', e => { e.target.checked ? etat.options.add(o.id) : etat.options.delete(o.id); maj(); window.montrer && window.montrer(o.id, (e.target.checked ? '+ ' : '− ') + o.nom); if (e.target.checked) stat('option-' + o.id); });
     c.appendChild(l);
   }
 }
@@ -289,9 +293,9 @@ function maj() {
   else { a.href = '#'; a.removeAttribute('target'); a.setAttribute('aria-disabled', 'true'); a.textContent = lien ? 'Choisis une parcelle' : 'Ouverture très bientôt'; }
   window.redessiner && window.redessiner();
 }
-$('acheter').addEventListener('click', e => { if ($('acheter').getAttribute('aria-disabled') === 'true') { e.preventDefault(); if (!etat.lot) $('t-lot').scrollIntoView({ behavior: 'smooth' }); } });
+$('acheter').addEventListener('click', e => { if ($('acheter').getAttribute('aria-disabled') !== 'true') stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); if ($('acheter').getAttribute('aria-disabled') === 'true') { e.preventDefault(); if (!etat.lot) $('t-lot').scrollIntoView({ behavior: 'smooth' }); } });
 let tPl = 0; $('plaque').addEventListener('input', () => { clearTimeout(tPl); tPl = setTimeout(() => { if (etat.statue) { window.redessiner && window.redessiner(); } }, 250); });
-$('statue-on').addEventListener('change', e => { etat.statue = e.target.checked; maj(); window.montrer && window.montrer('statue', e.target.checked ? '+ Ta statue' : '− Statue'); });
+$('statue-on').addEventListener('change', e => { etat.statue = e.target.checked; maj(); window.montrer && window.montrer('statue', e.target.checked ? '+ Ta statue' : '− Statue'); if (e.target.checked) stat('option-statue'); });
 options(); maj();
 window.ETAT = etat; window.TABLES = { FACADES, TOITS, VOLETS, MATIERES };
 </script>
@@ -535,6 +539,8 @@ window.montrer = (quoi, texte) => {
   if (quoi === 'statue' && etat.statue) { const a = .35 + .25; Object.assign(VUE_C, { dist: 15, haut: 6.5, vx: STATUE[0], vy: 4.2, vz: STATUE[2] }); cible = a; if (VUE.dist === 0) VUE.dist = loin; }
   else if (quoi in VERS) { if (VUE.dist === 0) VUE.dist = loin; Object.assign(VUE_C, { dist: loin, haut: 20, vx: 0, vy: 1.5, vz: 1 }); } const f = document.getElementById('flash'); if (texte) { f.textContent = texte; f.classList.add('on'); clearTimeout(tFlash); tFlash = setTimeout(() => f.classList.remove('on'), 1600); } };
 window.redessiner = () => { construire(); rendre(); };
+// photo d'un angle donné (utilisée pour fabriquer les stories)
+window.photo = (ang, W, H, dist = 34, haut = 14, vise = [0, 2, 0]) => { renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); cam.position.set(vise[0] + Math.sin(ang) * dist, haut, vise[2] + Math.cos(ang) * dist); cam.lookAt(...vise); renderer.render(scene, cam); return cv.toDataURL('image/jpeg', .9); };
 // image de vitrine (utilisée pour fabriquer l'image du haut de la page)
 window.vitrine = (configs, W, H) => {
   const sauve = JSON.stringify({ ...etat, options: [...etat.options] });
