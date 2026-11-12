@@ -29,6 +29,8 @@ export default async function handler(req, res) {
     if (prix.length !== cles.length) throw new Error('prix manquant dans Stripe');
     const ref = String(b.ref || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 200);
     const s = { mode: 'payment', client_reference_id: ref || `P${lot}-${maison}`, success_url: SITE + '/#merci', cancel_url: SITE + '/',
+      // panier abandonné : Stripe renvoie un e-mail de rappel (seulement si la personne a accepté les e-mails) — à activer aussi dans le Dashboard
+      'after_expiration[recovery][enabled]': 'true', 'consent_collection[promotions]': 'auto', expires_at: String(Math.floor(Date.now() / 1000) + 2 * 3600),
       'metadata[parcelle]': String(lot), 'metadata[maison]': maison, 'metadata[options]': opts.join(','), 'metadata[choix]': ref.slice(0, 500),
       'custom_fields[0][key]': 'pseudo', 'custom_fields[0][label][type]': 'custom', 'custom_fields[0][label][custom]': 'Ton pseudo (TikTok, Insta ou YouTube)', 'custom_fields[0][type]': 'text',
       'custom_fields[1][key]': 'boite', 'custom_fields[1][label][type]': 'custom', 'custom_fields[1][label][custom]': 'Nom sur la boîte aux lettres', 'custom_fields[1][type]': 'text', 'custom_fields[1][optional]': 'true' };
