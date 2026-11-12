@@ -302,7 +302,7 @@ $('acheter').addEventListener('click', async e => {
   if (API_PANIER && $('acheter').getAttribute('aria-disabled') !== 'true') {
     e.preventDefault(); stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); const a = $('acheter'), avant = a.textContent; a.textContent = 'Ouverture du paiement…';
     try { const r = await fetch(API_PANIER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maison: etat.maison, lot: etat.lot, options: [...etat.options], statue: etat.statue, ref: window.REF }) });
-      const j = await r.json(); if (j.url) { location.href = j.url; return; } throw new Error(j.erreur || 'erreur'); }
+      const j = await r.json(); if (j.url) { setTimeout(() => maj(), 3000); location.href = j.url; return; } throw new Error(j.erreur || 'erreur'); }
     catch (err) { a.textContent = 'Réessaie dans un instant'; setTimeout(() => a.textContent = avant, 2500); }
     return;
   }
@@ -316,7 +316,9 @@ function sauver() { try { localStorage.setItem(CLE_SAUVE, JSON.stringify({ ...et
 try { const v = JSON.parse(localStorage.getItem(CLE_SAUVE) || 'null'); if (v) { for (const k of Object.keys(etat)) if (k !== 'options' && k in v) etat[k] = v[k]; etat.options = new Set(v.options || []); if (v.boite) $('boite').value = v.boite; if (v.plaque) $('plaque').value = v.plaque; if (etat.lot && VENDUES[etat.lot]) etat.lot = null; } } catch (e) {}
 const majAvant = maj; maj = function () { majAvant(); sauver(); };
 $('boite').addEventListener('input', sauver); $('plaque').addEventListener('input', sauver);
-window.addEventListener('pageshow', ev => { if (ev.persisted) maj(); });
+window.addEventListener('pageshow', () => maj());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') maj(); });
+window.addEventListener('focus', () => maj());
 options(); maj();
 if (location.hash === '#merci') { $('merci').hidden = false; stat('paiement-reussi'); }
 window.ETAT = etat; window.TABLES = { FACADES, TOITS, VOLETS, MATIERES };
