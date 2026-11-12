@@ -28,11 +28,13 @@ export default async function handler(req, res) {
     const prix = (await stripe('/prices', p, 'GET')).data;
     if (prix.length !== cles.length) throw new Error('prix manquant dans Stripe');
     const ref = String(b.ref || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 200);
+    const propre = (t, n) => String(t || '').replace(/[<>]/g, '').trim().slice(0, n);
     const s = { mode: 'payment', client_reference_id: ref || `P${lot}-${maison}`, success_url: SITE + '/#merci', cancel_url: SITE + '/',
-      'metadata[parcelle]': String(lot), 'metadata[maison]': maison, 'metadata[options]': opts.join(','), 'metadata[choix]': ref.slice(0, 500),
+      'metadata[parcelle]': String(lot), 'metadata[maison]': maison, 'metadata[options]': opts.join(','), 'metadata[choix]': ref.slice(0, 500), 'metadata[panneau]': propre(b.boite, 22), 'metadata[plaque]': propre(b.plaque, 24),
       'custom_fields[0][key]': 'pseudo', 'custom_fields[0][label][type]': 'custom', 'custom_fields[0][label][custom]': 'Ton pseudo (TikTok, Insta ou YouTube)', 'custom_fields[0][type]': 'text',
-      'custom_fields[1][key]': 'boite', 'custom_fields[1][label][type]': 'custom', 'custom_fields[1][label][custom]': 'Nom sur la boîte aux lettres', 'custom_fields[1][type]': 'text', 'custom_fields[1][optional]': 'true' };
-    if (opts.includes('statue')) Object.assign(s, { 'custom_fields[2][key]': 'plaque', 'custom_fields[2][label][type]': 'custom', 'custom_fields[2][label][custom]': 'Texte de la plaque de ta statue', 'custom_fields[2][type]': 'text' });
+      'custom_fields[1][key]': 'nouvelles', 'custom_fields[1][label][type]': 'custom', 'custom_fields[1][label][custom]': 'Être prévenu(e) par e-mail de la sortie du jeu ?', 'custom_fields[1][type]': 'dropdown', 'custom_fields[1][optional]': 'true',
+      'custom_fields[1][dropdown][options][0][label]': 'Oui, tenez-moi au courant', 'custom_fields[1][dropdown][options][0][value]': 'oui',
+      'custom_fields[1][dropdown][options][1][label]': 'Non merci', 'custom_fields[1][dropdown][options][1][value]': 'non' };
     prix.forEach((x, i) => { s[`line_items[${i}][price]`] = x.id; s[`line_items[${i}][quantity]`] = '1'; });
     const sess = await stripe('/checkout/sessions', s);
     return res.status(200).json({ url: sess.url });

@@ -169,7 +169,7 @@ footer{font-size:14px;color:var(--muted)}
   <section class="regles">
     <h2>Les règles</h2>
     <ul>
-      <li>Au paiement, tu écris ton pseudo et tu coches <b>les mêmes options</b> que sur cette page.</li>
+      <li>Au paiement, tu écris ton pseudo. Tu peux aussi choisir d'être prévenu(e) par e-mail de la sortie du jeu (facultatif, désinscription à tout moment).</li>
       <li>Ta maison apparaît dans une vidéo sous 7 jours. Sinon, tu es remboursé après 14 jours.</li>
       <li>Les maisons payées portent un petit ⭐ soutien. Les votes restent gratuits, et les commerces de la ville se gagnent toujours dans les commentaires.</li>
       <li>Pas d'insulte, de pub ou de nom d'une autre personne sans son accord.</li>
@@ -315,7 +315,7 @@ let maj = function () {
 $('acheter').addEventListener('click', async e => {
   if (API_PANIER && $('acheter').getAttribute('aria-disabled') !== 'true') {
     e.preventDefault(); stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); const a = $('acheter'), avant = a.textContent; a.textContent = 'Ouverture du paiement…';
-    try { const r = await fetch(API_PANIER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maison: etat.maison, lot: etat.lot, options: [...etat.options], statue: etat.statue, ref: window.REF }) });
+    try { const r = await fetch(API_PANIER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maison: etat.maison, lot: etat.lot, options: [...etat.options], statue: etat.statue, ref: window.REF, boite: $('boite').value, plaque: etat.statue ? $('plaque').value : '' }) });
       const j = await r.json(); if (j.url) { setTimeout(() => maj(), 3000); location.href = j.url; return; } throw new Error(j.erreur || 'erreur'); }
     catch (err) { a.textContent = 'Réessaie dans un instant'; setTimeout(() => a.textContent = avant, 2500); }
     return;
