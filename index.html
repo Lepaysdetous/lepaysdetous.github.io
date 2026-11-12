@@ -73,8 +73,8 @@ section{display:grid;gap:16px}
 .pastille{width:34px;height:34px;border-radius:50%;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--ligne);cursor:pointer;padding:0}
 .pastille[aria-pressed="true"]{box-shadow:0 0 0 3px var(--ink)}
 .puce:focus-visible,.pastille:focus-visible{outline:3px solid var(--or);outline-offset:2px}
-input[type=text]{font:inherit;font-size:17px;color:var(--ink);background:var(--surface);border:2px solid var(--ligne);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box}
-input[type=text]:focus{outline:none;border-color:var(--mer)}
+input[type=text],input[type=email]{font:inherit;font-size:17px;color:var(--ink);background:var(--surface);border:2px solid var(--ligne);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box}
+input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--mer)}
 /* options */
 .options{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
 .opt{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--surface);border:2px solid var(--ligne);border-radius:12px;padding:12px 14px;cursor:pointer}
@@ -166,6 +166,13 @@ footer{font-size:14px;color:var(--muted)}
   </section>
 
 
+  <section class="regles" aria-labelledby="t-infos">
+    <h2 id="t-infos">Reste informé(e)</h2>
+    <div class="groupe"><label for="email">Ton e-mail (facultatif)</label><input type="email" id="email" autocomplete="email" inputmode="email" placeholder="toi@exemple.com"></div>
+    <label class="opt" for="accord"><input type="checkbox" id="accord"><span style="grid-column:span 2">J'accepte de recevoir des e-mails du Pays de Tous : un rappel si je ne termine pas mon achat, et les nouvelles du jeu (sortie, nouveautés). Je peux me désinscrire à tout moment. Si j'ai moins de 16 ans, un parent est d'accord.</span></label>
+    <p class="note">Rien n'est envoyé sans cette case cochée. Détails : <a href="confidentialite.html">politique de confidentialité</a>.</p>
+  </section>
+
   <section class="regles">
     <h2>Les règles</h2>
     <ul>
@@ -176,7 +183,7 @@ footer{font-size:14px;color:var(--muted)}
       <li>Moins de 18 ans : demande l'accord d'un parent avant de payer.</li>
     </ul>
   </section>
-  <footer>Une question ? Écris-nous en message privé sur notre compte <b>@lepaysdetous</b>.</footer>
+  <footer>Une question ? Écris-nous en message privé sur notre compte <b>@lepaysdetous</b>. · <a href="confidentialite.html">Confidentialité</a></footer>
 </div>
 
 <div class="recap" role="region" aria-label="Ton total">
@@ -315,7 +322,7 @@ let maj = function () {
 $('acheter').addEventListener('click', async e => {
   if (API_PANIER && $('acheter').getAttribute('aria-disabled') !== 'true') {
     e.preventDefault(); stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); const a = $('acheter'), avant = a.textContent; a.textContent = 'Ouverture du paiement…';
-    try { const r = await fetch(API_PANIER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maison: etat.maison, lot: etat.lot, options: [...etat.options], statue: etat.statue, ref: window.REF, boite: $('boite').value, plaque: etat.statue ? $('plaque').value : '' }) });
+    try { const r = await fetch(API_PANIER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maison: etat.maison, lot: etat.lot, options: [...etat.options], statue: etat.statue, ref: window.REF, boite: $('boite').value, plaque: etat.statue ? $('plaque').value : '', email: $('accord').checked ? $('email').value.trim() : '', accord: $('accord').checked }) });
       const j = await r.json(); if (j.url) { setTimeout(() => maj(), 3000); location.href = j.url; return; } throw new Error(j.erreur || 'erreur'); }
     catch (err) { a.textContent = 'Réessaie dans un instant'; setTimeout(() => a.textContent = avant, 2500); }
     return;

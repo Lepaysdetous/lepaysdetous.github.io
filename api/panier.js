@@ -35,6 +35,8 @@ export default async function handler(req, res) {
       'custom_fields[1][key]': 'nouvelles', 'custom_fields[1][label][type]': 'custom', 'custom_fields[1][label][custom]': 'Être prévenu(e) par e-mail de la sortie du jeu ?', 'custom_fields[1][type]': 'dropdown', 'custom_fields[1][optional]': 'true',
       'custom_fields[1][dropdown][options][0][label]': 'Oui, tenez-moi au courant', 'custom_fields[1][dropdown][options][0][value]': 'oui',
       'custom_fields[1][dropdown][options][1][label]': 'Non merci', 'custom_fields[1][dropdown][options][1][value]': 'non' };
+    const mail = String(b.email || '').trim().slice(0, 120);
+    if (b.accord === true && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) Object.assign(s, { customer_email: mail, 'metadata[accord_emails]': 'oui', 'metadata[accord_date]': new Date().toISOString(), 'metadata[accord_texte]': 'v1-site-rappel-et-nouvelles' });
     prix.forEach((x, i) => { s[`line_items[${i}][price]`] = x.id; s[`line_items[${i}][quantity]`] = '1'; });
     const sess = await stripe('/checkout/sessions', s);
     return res.status(200).json({ url: sess.url });
