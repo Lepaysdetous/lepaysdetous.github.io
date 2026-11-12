@@ -104,6 +104,7 @@ footer{font-size:14px;color:var(--muted)}
 
 
 <div class="wrap">
+  <p class="jeu" id="merci" hidden><b>Merci pour ton achat ! 🏡</b> Ta maison sera construite et montrée dans une vidéo du Pays de Tous sous 7 jours. Tu recevras le reçu par e-mail.</p>
   <header class="hero">
     <p class="eyebrow">Le Pays de Tous · île de Vulkaris</p>
     <h1>Les Hauts de <em>Plavulca</em></h1>
@@ -179,6 +180,8 @@ const LIENS = { cabane: "https://buy.stripe.com/5kQ7sLdRQdhe5Sv6B1bAs00", petite
 const VENDUES = {};
 // Statistiques de visites (GoatCounter) : code du compte, ex. "lepaysdetous" → https://lepaysdetous.goatcounter.com
 const GOATCOUNTER = "";
+// Serveur qui crée le paiement avec le panier exact (Vercel). Vide = anciens liens Stripe (options à recocher).
+const API_PANIER = "";
 /* ============================ */
 const stat = (nom) => { try { window.goatcounter && window.goatcounter.count && window.goatcounter.count({ path: nom, title: nom, event: true }); } catch (e) {} };
 if (GOATCOUNTER && location.hostname.endsWith('github.io')) { const sc = document.createElement('script'); sc.async = true; sc.src = 'https://gc.zgo.at/count.js'; sc.dataset.goatcounter = `https://${GOATCOUNTER}.goatcounter.com/count`; document.head.appendChild(sc); }
@@ -289,14 +292,25 @@ function maj() {
   $('resume').textContent = `${m.nom}${etat.lot ? ' · parcelle ' + etat.lot : ' · choisis une parcelle'}${opts.length ? ' · ' + opts.join(', ') : ''}`;
   const ref = ['P' + (etat.lot || 0), etat.maison, etat.style, etat.facade, etat.toit, etat.volet, etat.cloture, [...etat.options].join('_') || 'x', etat.statue ? ['S', etat.pose, etat.matiere, etat.acc].join('_') : 'x'].join('-');
   const a = $('acheter'), lien = LIENS[etat.maison];
-  if (lien && etat.lot) { a.href = lien + (lien.includes('?') ? '&' : '?') + 'client_reference_id=' + encodeURIComponent(ref.slice(0, 200)); a.target = '_blank'; a.rel = 'noopener'; a.removeAttribute('aria-disabled'); a.textContent = 'Acheter ma maison'; }
+  window.REF = ref;
+  if (API_PANIER) { a.href = '#'; a.removeAttribute('target'); if (etat.lot) { a.removeAttribute('aria-disabled'); a.textContent = 'Payer ' + eur(total()); } else { a.setAttribute('aria-disabled', 'true'); a.textContent = 'Choisis une parcelle'; } }
+  else if (lien && etat.lot) { a.href = lien + (lien.includes('?') ? '&' : '?') + 'client_reference_id=' + encodeURIComponent(ref.slice(0, 200)); a.target = '_blank'; a.rel = 'noopener'; a.removeAttribute('aria-disabled'); a.textContent = 'Acheter ma maison'; }
   else { a.href = '#'; a.removeAttribute('target'); a.setAttribute('aria-disabled', 'true'); a.textContent = lien ? 'Choisis une parcelle' : 'Ouverture très bientôt'; }
   window.redessiner && window.redessiner();
 }
-$('acheter').addEventListener('click', e => { if ($('acheter').getAttribute('aria-disabled') !== 'true') stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); if ($('acheter').getAttribute('aria-disabled') === 'true') { e.preventDefault(); if (!etat.lot) $('t-lot').scrollIntoView({ behavior: 'smooth' }); } });
+$('acheter').addEventListener('click', async e => {
+  if (API_PANIER && $('acheter').getAttribute('aria-disabled') !== 'true') {
+    e.preventDefault(); stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); const a = $('acheter'), avant = a.textContent; a.textContent = 'Ouverture du paiement…';
+    try { const r = await fetch(API_PANIER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ maison: etat.maison, lot: etat.lot, options: [...etat.options], statue: etat.statue, ref: window.REF }) });
+      const j = await r.json(); if (j.url) { location.href = j.url; return; } throw new Error(j.erreur || 'erreur'); }
+    catch (err) { a.textContent = 'Réessaie dans un instant'; setTimeout(() => a.textContent = avant, 2500); }
+    return;
+  }
+  if ($('acheter').getAttribute('aria-disabled') !== 'true') stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); if ($('acheter').getAttribute('aria-disabled') === 'true') { e.preventDefault(); if (!etat.lot) $('t-lot').scrollIntoView({ behavior: 'smooth' }); } });
 let tPl = 0; $('plaque').addEventListener('input', () => { clearTimeout(tPl); tPl = setTimeout(() => { if (etat.statue) { window.redessiner && window.redessiner(); } }, 250); });
 $('statue-on').addEventListener('change', e => { etat.statue = e.target.checked; maj(); window.montrer && window.montrer('statue', e.target.checked ? '+ Ta statue' : '− Statue'); if (e.target.checked) stat('option-statue'); });
 options(); maj();
+if (location.hash === '#merci') { $('merci').hidden = false; stat('paiement-reussi'); }
 window.ETAT = etat; window.TABLES = { FACADES, TOITS, VOLETS, MATIERES };
 </script>
 
