@@ -279,7 +279,7 @@ function total() {
   return t;
 }
 
-function maj() {
+let maj = function () {
   carte(); maisons();
   puces('styles', STYLES, 'style'); puces('facades', FACADES, 'facade', true); puces('toits', TOITS, 'toit', true);
   puces('volets', VOLETS, 'volet', true); puces('clotures', CLOTURES, 'cloture');
@@ -297,7 +297,7 @@ function maj() {
   else if (lien && etat.lot) { a.href = lien + (lien.includes('?') ? '&' : '?') + 'client_reference_id=' + encodeURIComponent(ref.slice(0, 200)); a.target = '_blank'; a.rel = 'noopener'; a.removeAttribute('aria-disabled'); a.textContent = 'Acheter ma maison'; }
   else { a.href = '#'; a.removeAttribute('target'); a.setAttribute('aria-disabled', 'true'); a.textContent = lien ? 'Choisis une parcelle' : 'Ouverture très bientôt'; }
   window.redessiner && window.redessiner();
-}
+};
 $('acheter').addEventListener('click', async e => {
   if (API_PANIER && $('acheter').getAttribute('aria-disabled') !== 'true') {
     e.preventDefault(); stat('panier-' + etat.maison + (etat.statue ? '-statue' : '')); const a = $('acheter'), avant = a.textContent; a.textContent = 'Ouverture du paiement…';
@@ -310,6 +310,13 @@ $('acheter').addEventListener('click', async e => {
 let tBo = 0; $('boite').addEventListener('input', () => { clearTimeout(tBo); tBo = setTimeout(() => { window.redessiner && window.redessiner(); }, 250); });
 let tPl = 0; $('plaque').addEventListener('input', () => { clearTimeout(tPl); tPl = setTimeout(() => { if (etat.statue) { window.redessiner && window.redessiner(); } }, 250); });
 $('statue-on').addEventListener('change', e => { etat.statue = e.target.checked; maj(); window.montrer && window.montrer('statue', e.target.checked ? '+ Ta statue' : '− Statue'); if (e.target.checked) stat('option-statue'); });
+// garder les choix (retour depuis la page de paiement, page rechargée)
+const CLE_SAUVE = 'vulkaris-panier-v1';
+function sauver() { try { localStorage.setItem(CLE_SAUVE, JSON.stringify({ ...etat, options: [...etat.options], boite: $('boite').value, plaque: $('plaque').value })); } catch (e) {} }
+try { const v = JSON.parse(localStorage.getItem(CLE_SAUVE) || 'null'); if (v) { for (const k of Object.keys(etat)) if (k !== 'options' && k in v) etat[k] = v[k]; etat.options = new Set(v.options || []); if (v.boite) $('boite').value = v.boite; if (v.plaque) $('plaque').value = v.plaque; if (etat.lot && VENDUES[etat.lot]) etat.lot = null; } } catch (e) {}
+const majAvant = maj; maj = function () { majAvant(); sauver(); };
+$('boite').addEventListener('input', sauver); $('plaque').addEventListener('input', sauver);
+window.addEventListener('pageshow', ev => { if (ev.persisted) maj(); });
 options(); maj();
 if (location.hash === '#merci') { $('merci').hidden = false; stat('paiement-reussi'); }
 window.ETAT = etat; window.TABLES = { FACADES, TOITS, VOLETS, MATIERES };
