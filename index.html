@@ -131,6 +131,9 @@ footer{font-size:14px;color:var(--muted)}
     <h2 id="t-fond">Tu deviens Fondateur</h2>
     <p>En prenant une maison, tu soutiens la création du jeu. En échange :</p>
     <ul>
+      <li><b>Ton nom en or</b> <span class="badge">Nouveau</span> : dans le jeu, ton pseudo s'affiche en doré avec le badge ⭐ Fondateur.</li>
+      <li><b>Ton numéro de Fondateur</b> <span class="badge">Nouveau</span> : attribué dans l'ordre d'achat. Plus tu arrives tôt, plus il est petit.</li>
+      <li><b>Ton passeport de Fondateur</b> <span class="badge">Nouveau</span> : une carte à ton nom avec ton numéro et ta maison, à partager.</li>
       <li><b>Bêta-testeur</b> : tu joues au jeu avant tout le monde (coche la case e-mail plus bas pour être prévenu).</li>
       <li><b>Ta maison dans le jeu</b> : le jour de la sortie, elle est déjà là, sur ta parcelle.</li>
       <li><b>Ton nom au générique</b> du jeu et sur le Mur des Fondateurs, construit sur l'île.</li>
@@ -210,7 +213,7 @@ footer{font-size:14px;color:var(--muted)}
 // Liens de paiement Stripe (un par maison, avec les options en « articles facultatifs »).
 const LIENS = { cabane: "https://buy.stripe.com/5kQ7sLdRQdhe5Sv6B1bAs00", petite: "https://buy.stripe.com/fZu28rbJIa525Sv7F5bAs01", grande: "https://buy.stripe.com/6oUbJ1cNM4KIgx99NdbAs02", villa: "https://buy.stripe.com/3cI14n8xwgtqcgT9NdbAs03" };
 // Parcelles déjà vendues : { numéro: "pseudo" }
-const VENDUES = { 1: "empereur.pe", 18: "vanvan.du17", 33: "_.zowwee._" };
+const VENDUES = { 1: "empereur.pe", 18: "vanvan.du17", 33: "_.zowwee._", 43: "Clutcche", 44: "Hidroway" };
 // Statistiques de visites (GoatCounter) : code du compte, ex. "lepaysdetous" → https://lepaysdetous.goatcounter.com
 const GOATCOUNTER = "lepaysdetous";
 // Serveur qui crée le paiement avec le panier exact (Vercel). Vide = anciens liens Stripe (options à recocher).
