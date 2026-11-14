@@ -601,6 +601,12 @@ window.montrer = (quoi, texte) => {
   if (quoi === 'statue' && etat.statue) { const a = .35 + .25; Object.assign(VUE_C, { dist: 15, haut: 6.5, vx: STATUE[0], vy: 4.2, vz: STATUE[2] }); cible = a; if (VUE.dist === 0) VUE.dist = loin; }
   else if (quoi in VERS) { if (VUE.dist === 0) VUE.dist = loin; Object.assign(VUE_C, { dist: loin, haut: 20, vx: 0, vy: 1.5, vz: 1 }); } const f = document.getElementById('flash'); if (texte) { f.textContent = texte; f.classList.add('on'); clearTimeout(tFlash); tFlash = setTimeout(() => f.classList.remove('on'), 1600); } };
 window.redessiner = () => { construire(); rendre(); };
+// décor autour de la parcelle (clips vitrine des maisons achetées) : sol, forêt, volcan au loin
+window.decorVitrine = () => { const F = []; const sol = prep(new THREE.BoxGeometry(400, .4, 400)); sol.translate(0, -.45, 0); F.push(peindre(sol, '#79ad59'));
+  for (let i = 0; i < 90; i++) { const a = i * 2.39996, r = 24 + (i * 37 % 60), x = Math.cos(a) * r, z = Math.sin(a) * r - 10; if (z > 12 && Math.abs(x) < 40) continue; const k = .9 + (i * 7 % 5) * .15;
+    cyl(F, .3 * k, .4 * k, 2.4 * k, x, 1.2 * k, z, '#6b4a2e', 6); const c = prep(new THREE.ConeGeometry(2 * k, 5.5 * k, 7)); c.translate(x, 4.6 * k, z); F.push(peindre(c, i % 3 ? '#2f6b3d' : '#3d7f47')); }
+  const v = prep(new THREE.ConeGeometry(45, 40, 9)); v.translate(30, 18, -140); F.push(peindre(v, '#6c6560')); const v2 = prep(new THREE.ConeGeometry(10, 8, 9)); v2.translate(30, 35, -140); F.push(peindre(v2, '#e2531d'));
+  const m = fusion(F); m.castShadow = false; scene.add(m); scene.fog = new THREE.Fog('#bfe3f5', 90, 230); };
 // photo d'un angle donné (utilisée pour fabriquer les stories)
 window.photo = (ang, W, H, dist = 34, haut = 14, vise = [0, 2, 0]) => { renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); cam.position.set(vise[0] + Math.sin(ang) * dist, haut, vise[2] + Math.cos(ang) * dist); cam.lookAt(...vise); renderer.render(scene, cam); return cv.toDataURL('image/jpeg', .9); };
 // image de vitrine (utilisée pour fabriquer l'image du haut de la page)
