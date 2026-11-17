@@ -9,7 +9,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#9fd3f2;font-family:L,
 .haut{position:fixed;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;justify-content:space-between;align-items:center;pointer-events:none}
 .titre{color:#fff;font-size:20px;text-shadow:0 2px 0 #3b2412,0 0 6px rgba(0,0,0,.4)}
 .btns{display:flex;gap:6px;pointer-events:auto}
-.btns button{font:15px L,sans-serif;border:0;border-radius:14px;padding:9px 11px;background:rgba(15,25,40,.62);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.btns button{font:15px L,sans-serif;border:0;border-radius:14px;padding:9px 9px;background:rgba(15,25,40,.62);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25)}
 #joy{position:fixed;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid rgba(255,255,255,.55);display:none;pointer-events:none}
 #joy.on{display:block}#joyb{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.85);transform:translate(-50%,-50%)}
 #info{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translate(-50%,calc(100% + 40px));transition:transform .3s;background:#fffaf0;border:3px solid #e8c35a;border-radius:18px;padding:10px 16px;text-align:center;width:min(340px,86vw);box-sizing:border-box;box-shadow:0 6px 18px rgba(0,0,0,.3);pointer-events:auto}
@@ -18,9 +18,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:#9fd3f2;font-family:L,
 #charge{position:fixed;inset:0;background:#9fd3f2;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-size:30px;text-shadow:0 3px 0 #3b2412;transition:opacity .5s;z-index:9}
 #charge small{font-size:16px;margin-top:10px;font-family:system-ui,sans-serif;text-shadow:none;opacity:.9}
 .cache{opacity:0;pointer-events:none!important}
+#bug-boite{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.9);opacity:0;pointer-events:none;transition:.2s;background:#fffaf0;border:3px solid #e8c35a;border-radius:18px;padding:14px 16px;text-align:center;width:min(320px,86vw);box-sizing:border-box;font-family:system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:8}
+#bug-boite.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}#bug-boite b{display:block;font:22px L,sans-serif;color:#b8862b;font-weight:normal}#bug-boite span{display:block;font-size:14px;color:#333;margin:6px 0}#bug-boite code{display:block;background:#efe6d2;border-radius:8px;padding:6px;font-size:14px;margin:6px 0;user-select:all;-webkit-user-select:all}#bug-boite button{font:15px L,sans-serif;border:0;border-radius:12px;padding:8px 14px;margin:4px;background:#1f4a6e;color:#fff}
 </style></head><body>
 <div id="jeu"></div><canvas id="out" width="4" height="4"></canvas>
-<div class="haut"><div class="titre">🌋 Vulkaris</div><div class="btns"><button id="tp-hauts">🏡 Hauts</button><button id="tp-ville">🏙️ Ville</button><button id="zoom">🔍</button></div></div>
+<div class="haut"><div class="titre">🌋 Vulkaris</div><div class="btns"><button id="tp-hauts">🏡 Hauts</button><button id="tp-ville">🏙️ Ville</button><button id="zoom">🔍</button><button id="bug">🐞</button></div></div>
+<div id="bug-boite"><b>🐞 Un souci ici ?</b><span>1. Fais une capture d'écran maintenant<br>2. Envoie-la à Claude avec ce code :</span><code id="bug-code"></code><div><button id="bug-copie">Copier</button><button id="bug-ok">Fermer</button></div></div>
 <div id="joy"><div id="joyb"></div></div>
 <div id="aide">👈 Glisse à <b>gauche</b> pour marcher<br>👉 Glisse à <b>droite</b> pour tourner la caméra<br>🏡 Visite les maisons des Fondateurs !</div>
 <div id="info"></div>
@@ -1532,6 +1535,13 @@ const lacher = e => { if (e.pointerId === joy.id) { joy.id = null; joy.x = joy.y
 cv.addEventListener('pointerup', lacher); cv.addEventListener('pointercancel', lacher);
 cv.addEventListener('wheel', e => { dist = Math.max(4, Math.min(18, dist + e.deltaY * .01)); }, { passive: true });
 const K = {}; addEventListener('keydown', e => { K[e.key.toLowerCase()] = true; $('aide').classList.add('cache'); }); addEventListener('keyup', e => { K[e.key.toLowerCase()] = false; });
+// ---- 🐞 signaler : code de position à copier + capture d'écran ; ?ici=CODE ramène exactement au même endroit ----
+$('bug').onclick = () => { const code = ['V1', P.x.toFixed(1), P.z.toFixed(1), P.y.toFixed(1), yaw.toFixed(2), pitch.toFixed(2), dist.toFixed(0)].join(':');
+  $('bug-code').textContent = code; $('bug-boite').classList.add('on'); copier(code); };
+function copier(code) { $('bug-copie').textContent = 'Copier'; try { navigator.clipboard.writeText('🐞 Vulkaris ' + code).then(() => $('bug-copie').textContent = '✅ Code copié', () => {}); } catch (e) {} }
+$('bug-copie').onclick = () => copier($('bug-code').textContent);
+$('bug-ok').onclick = () => $('bug-boite').classList.remove('on');
+{ const m = /[?&]ici=(V1:[-\d.:]+)/.exec(location.search); if (m) { const v = m[1].split(':').slice(1).map(Number); P.x = v[0]; P.z = v[1]; P.y = v[2]; yaw = v[3]; pitch = v[4]; dist = v[5] || dist; } }
 $('tp-hauts').onclick = () => tp('hauts'); $('tp-ville').onclick = () => tp('ville');
 $('zoom').onclick = () => { dist = dist > 11 ? 5.5 : dist > 7 ? 14 : 8; };
 
