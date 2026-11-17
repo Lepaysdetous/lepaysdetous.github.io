@@ -102,6 +102,9 @@ input[type=text]:focus,input[type=email]:focus{outline:none;border-color:var(--m
 .regles details ul{margin-top:8px}
 .garantie{background:var(--surface);border:2px solid var(--foret);border-radius:14px;padding:16px 18px;display:grid;gap:8px}
 .garantie ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.promo{margin:0;position:relative;justify-self:center;width:min(100%,320px);border-radius:18px;overflow:hidden;box-shadow:0 14px 30px -14px #0007;background:#000}
+.promo video{display:block;width:100%;aspect-ratio:9/16;object-fit:cover}
+.son{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);font:inherit;font-weight:800;font-size:15px;border:0;border-radius:999px;padding:8px 16px;background:#fffdf8;color:#1d1b18;cursor:pointer;box-shadow:0 4px 12px #0005}
 .regles{background:var(--surface);border:1px solid var(--ligne);border-radius:14px;padding:20px;display:grid;gap:10px}
 .regles ul{margin:0;padding-left:20px;display:grid;gap:8px}
 footer{font-size:14px;color:var(--muted)}
@@ -135,6 +138,10 @@ footer{font-size:14px;color:var(--muted)}
     <a class="cta hero-cta" href="#t-lot" id="hero-cta">Choisis ta parcelle</a>
     <p class="confiance"><span>✓ Dans la vidéo sous 7 jours, sinon remboursé</span><span>✓ Paiement sécurisé</span></p>
     <p class="preuve note" id="preuve-hero"></p>
+    <figure class="promo">
+      <video id="promo" src="media/promo.mp4" poster="media/promo.jpg" muted loop playsinline preload="none" aria-label="Vidéo : comment avoir ta maison sur l'île"></video>
+      <button type="button" class="son" id="son">🔊 Avec le son</button>
+    </figure>
     <p class="jeu"><b>Où va l'argent ?</b> Tout ce qui est récolté sert à développer <b>notre propre jeu</b> : plus tard, tu pourras te balader dans Vulkaris et entrer dans ta maison.</p>
   </header>
 
@@ -212,14 +219,14 @@ footer{font-size:14px;color:var(--muted)}
   </section>
 
   <section class="regles">
-    <h2>Les règles</h2>
+    <details><summary><h2 style="display:inline">Les règles</h2></summary>
     <ul>
       <li>Au paiement, tu écris ton pseudo. Tu peux aussi choisir d'être prévenu(e) par e-mail de la sortie du jeu (facultatif, désinscription à tout moment).</li>
       <li>Ta maison apparaît dans une vidéo sous 7 jours. Sinon, tu es remboursé après 14 jours.</li>
       <li>Les maisons payées portent un petit ⭐ soutien. Les votes restent gratuits, et les commerces de la ville se gagnent toujours dans les commentaires.</li>
       <li>Pas d'insulte, de pub ou de nom d'une autre personne sans son accord.</li>
       <li>Moins de 18 ans : demande l'accord d'un parent avant de payer.</li>
-    </ul>
+    </ul></details>
   </section>
   <footer>Une question ? Écris-nous en message privé sur notre compte <b>@lepaysdetous</b>. · <a href="confidentialite.html">Confidentialité</a></footer>
 </div>
@@ -242,6 +249,11 @@ const GOATCOUNTER = "lepaysdetous";
 // Serveur qui crée le paiement avec le panier exact (Vercel). Vide = anciens liens Stripe (options à recocher).
 const API_PANIER = "https://lepaysdetous.vercel.app/api/panier";
 /* ============================ */
+(() => { const v = document.getElementById('promo'), b = document.getElementById('son'); if (!v) return;
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver(e => { for (const x of e) { if (x.isIntersecting) { v.play().catch(() => {}); } else v.pause(); } }, { threshold: .5 }) : null;
+  if (io) io.observe(v);
+  b.addEventListener('click', () => { v.muted = !v.muted; if (!v.muted) { v.currentTime = 0; v.play().catch(() => {}); } b.textContent = v.muted ? '🔊 Avec le son' : '🔇 Couper le son'; try { stat('video-son'); } catch (e) {} });
+})();
 const stat = (nom) => { try { window.goatcounter && window.goatcounter.count && window.goatcounter.count({ path: nom, title: nom, event: true }); } catch (e) {} };
 if (GOATCOUNTER && location.hostname.endsWith('github.io')) { const sc = document.createElement('script'); sc.async = true; sc.src = 'https://gc.zgo.at/count.js'; sc.dataset.goatcounter = `https://${GOATCOUNTER}.goatcounter.com/count`; document.head.appendChild(sc); }
 
@@ -252,7 +264,7 @@ const ZONES = [
 ];
 const MAISONS = [
   { id:'cabane', nom:'Cabane', base:1.99, txt:'Une pièce, une terrasse, le charme.' },
-  { id:'petite', nom:'Petite maison', base:2.99, txt:'Un étage, idéale pour commencer.', tag:'Le plus choisi' },
+  { id:'petite', nom:'Petite maison', base:2.99, txt:'Un étage, idéale pour commencer.', tag:'Notre conseil' },
   { id:'grande', nom:'Grande maison', base:4.99, txt:'Deux étages et un grand jardin.' },
   { id:'villa', nom:'Villa', base:7.99, txt:'Deux ailes, terrasse, la grande vie.' },
 ];
@@ -391,7 +403,9 @@ window.ETAT = etat; window.TABLES = { FACADES, TOITS, VOLETS, MATIERES };
 </script>
 
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js';
+// La 3D ne se charge que quand on approche de l'étape 3 (page plus rapide à l'ouverture).
+await new Promise(ok => { const v = document.getElementById('vue'); if (!('IntersectionObserver' in window)) return ok(); const io = new IntersectionObserver(e => { if (e.some(x => x.isIntersecting)) { io.disconnect(); ok(); } }, { rootMargin: '900px 0px' }); io.observe(v); });
+const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js');
 const etat = window.ETAT, T = window.TABLES;
 const cv = document.getElementById('c3d'), vue = document.getElementById('vue');
 let renderer;
