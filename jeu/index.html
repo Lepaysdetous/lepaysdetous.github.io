@@ -1229,12 +1229,13 @@ function etiquette(txt, couleur = '#ffd34d') {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true })); s.scale.set(10, 2.5, 1); return s;
 }
-const LOTS = [];
+const LOTS = [], BOITES_H = [];
 const SLOTS = []; for (const s of [-1, 1]) for (const x of [-45, -15, 15, 45]) SLOTS.push([x, s]);
 D.lots.forEach((lot, i) => {
   const [x, s] = SLOTS[i]; const g = new THREE.Group(); g.position.set(x, 0, s * 20); g.rotation.y = s > 0 ? Math.PI : 0; hauts.add(g);
   if (lot.etat) {
-    const p = parcelle(lot.etat); g.add(p.g);
+    const p = parcelle(lot.etat); g.add(p.g); BOITES_H.push([g, 0, -7.5, p.w + .6, p.d + .6, ({ cabane: 6, petite: 7, grande: 10, villa: 10 })[lot.etat.maison] || 9]);
+    if (lot.etat.maison === 'villa') BOITES_H.push([g, p.w / 2 + 2.7, -7.5 - p.d / 2 + .5, 6, 6, 5.5]);
     const et = etiquette('⭐ ' + lot.pseudo); et.position.set(0, lot.etat.maison === 'cabane' ? 9 : 14, -7.5); g.add(et);
   } else {
     const L = []; bx(L, 30, .4, 30, 0, -.2, 0, '#86c06a'); for (let k = 0; k < 6; k++) bx(L, 30, .41, 2, 0, -.2, -12 + k * 5, '#7db662');
@@ -1394,6 +1395,18 @@ const exclus = new Set([terrain, ocean, clouds, cloudLayer, smoke, trees, trunks
 scene.traverse(o => { if (!o.isMesh) return; for (let p = o; p; p = p.parent) if (exclus.has(p)) return; o.castShadow = true; o.receiveShadow = true; });
 terrain.receiveShadow = true;
 
+// ================= CAMÉRA : boîtes des vrais bâtiments (on ignore arbres, haies, lampadaires, panneaux) =================
+const CAMB = [];
+function boiteCam(o, cx, cz, w, d, top) { o.updateWorldMatrix(true, false); const c = new THREE.Vector3(cx, 0, cz).applyMatrix4(o.matrixWorld), ax = new THREE.Vector3(1, 0, 0).transformDirection(o.matrixWorld), yw = Math.atan2(-ax.z, ax.x);
+  CAMB.push({ x: c.x, z: c.z, c: Math.cos(yw), s: Math.sin(yw), hw: w / 2, hd: d / 2, r: Math.hypot(w, d) / 2, top }); }
+function boiteMesh(m, max) { m.geometry.computeBoundingBox(); const b = m.geometry.boundingBox; if (![b.min.x, b.max.x, b.min.z, b.max.z, b.max.y].every(isFinite)) return; const w = b.max.x - b.min.x, d = b.max.z - b.min.z; if (w > max || d > max) return;
+  m.updateWorldMatrix(true, false); const top = new THREE.Vector3(0, b.max.y, 0).applyMatrix4(m.matrixWorld).y; boiteCam(m, (b.min.x + b.max.x) / 2, (b.min.z + b.max.z) / 2, w * .92, d * .92, top); }
+if (capitale) capitale.children.forEach(m => { if (m.isMesh && m.userData.d > 0) boiteMesh(m, 30); });
+for (const g of speciaux) { const m = g.userData.inner && g.userData.inner.children[0]; if (m && m.isMesh && !g.userData.monde) boiteMesh(m, 34); }
+for (const [g, cx, cz, w, d, h] of BOITES_H) { boiteCam(g, cx, cz, w, d, 0); CAMB[CAMB.length - 1].top = hy + h; }
+function murCam(x, y, z, proches) { for (const b of proches) { if (y > b.top) continue; const dx = x - b.x, dz = z - b.z, lx = dx * b.c - dz * b.s, lz = dx * b.s + dz * b.c; if (Math.abs(lx) < b.hw && Math.abs(lz) < b.hd) return true; } return false; }
+let camD = 8;
+
 // ================= COLLISIONS : grille 2,5D (sols + murs) calculée depuis la vraie géométrie =================
 const CELL = .5, CH = 32, NC = 1280, NF = 4, NW = 3, VIDE = -32768, CHK = new Map();
 function chunk(i, j, cree) { const k = (i >> 5) * 64 + (j >> 5); let c = CHK.get(k); if (!c && cree) { c = { f: new Int16Array(CH * CH * NF).fill(VIDE), w: new Int16Array(CH * CH * NW * 2).fill(VIDE) }; CHK.set(k, c); } return c; }
@@ -1469,7 +1482,7 @@ function replanter() {
     if (y < 1.8 || y > 40 || Math.hypot(x - VOLC.x, z - VOLC.y) < 34 || riverDist(x, z) < 8.5) continue;
     if (Math.abs(height(x + .9, z) - y) + Math.abs(height(x, z + .9) - y) > .55) continue;
     const mi = Math.floor((x + 320) / 640 * 512), mj = Math.floor((z + 320) / 640 * 512); if (masquePetit[(mj * 512 + mi) * 4] > 40) continue;
-    const ii = ci(x), jj = ci(z), c = chunk(ii, jj); if (c) { const b = ((jj & 31) * CH + (ii & 31)); let objet = false; for (let k = 0; k < NF; k++) { const v = c.f[b * NF + k]; if (v !== VIDE && v / 20 > y - .3) objet = Math.abs(v / 20 - y) > .06 || objet; } if (objet || c.w[b * NW * 2] !== VIDE) continue; }
+    const ii = ci(x), jj = ci(z), c = chunk(ii, jj); if (c) { const b = ((jj & 31) * CH + (ii & 31)); let objet = false; for (let k = 0; k < NF; k++) { const v = c.f[b * NF + k]; if (v !== VIDE && v / 20 > y - .3) objet = Math.abs(v / 20 - y) > .02 || objet; } if (objet || c.w[b * NW * 2] !== VIDE) continue; }
     const yy = sol(x, z, y);
     Q.setFromAxisAngle(up, hs(gi, gj, 3) * 6.28); const sc = .7 + hs(gi, gj, 4) * .7; Ps.set(x, yy - .02, z);
     if (hs(gi, gj, 5) < .15 && nf < NFL) { Sc.set(sc, sc, sc); M.compose(Ps, Q, Sc); fleurs.setMatrixAt(nf, M); fleurs.setColorAt(nf, FC[Math.floor(hs(gi, gj, 6) * FC.length)]); nf++; }
@@ -1562,13 +1575,15 @@ function boucle(now) {
   perso.position.set(P.x, P.y + Math.abs(Math.sin(P.phase)) * .08 * Math.min(1, P.v * 2), P.z); perso.rotation.y = P.dir;
   const sw = Math.sin(P.phase) * .7 * Math.min(1, P.v * 1.5); jambes[0].rotation.x = sw; jambes[1].rotation.x = -sw; bras[0].rotation.x = -sw * .8; bras[1].rotation.x = sw * .8;
   // caméra 3e personne (ne traverse pas les murs)
-  vise.set(P.x, P.y + TAILLE * .8, P.z);
-  let ox, oy, oz, dd;   // si un mur est derrière, la caméra monte au-dessus plutôt que de se coller au perso
-  for (let pt = pitch; ; pt += .15) { const p2 = Math.min(1.35, pt); ox = Math.sin(yaw) * Math.cos(p2); oy = Math.sin(p2); oz = Math.cos(yaw) * Math.cos(p2); dd = dist;
-    for (let s = .8; s <= dist; s += .35) { const x = vise.x + ox * s, y = vise.y + oy * s, z = vise.z + oz * s; if (obstacleCam(x, y, z) || y < sol(x, z) + .4) { dd = Math.max(1.2, s - .5); break; } }
-    if (dd >= Math.min(dist, 4.5) || p2 >= 1.35) break; }
-  camCible.set(vise.x + ox * dd, vise.y + oy * dd, vise.z + oz * dd);
-  cam.position.lerp(camCible, Math.min(1, dt * (dd < dist ? 20 : 8))); cam.lookAt(vise);
+  vise.set(P.x, P.y + TAILLE * .75, P.z);
+  // caméra : garde l'angle choisi ; seul un vrai bâtiment entre elle et le perso la rapproche (jamais à moins de 3 m)
+  const ox = Math.sin(yaw) * Math.cos(pitch), oy = Math.sin(pitch), oz = Math.cos(yaw) * Math.cos(pitch);
+  const proches = CAMB.filter(b => Math.abs(b.x - P.x) < b.r + dist + 2 && Math.abs(b.z - P.z) < b.r + dist + 2);
+  let dd = dist; for (let s = 1; s <= dist; s += .3) { if (murCam(vise.x + ox * s, vise.y + oy * s, vise.z + oz * s, proches)) { dd = Math.max(3, s - .4); break; } }
+  camD += (dd - camD) * Math.min(1, dt * (dd < camD ? 9 : 2.5));
+  camCible.set(vise.x + ox * camD, vise.y + oy * camD, vise.z + oz * camD);
+  camCible.y = Math.max(camCible.y, height(camCible.x, camCible.z) + .6, sol(camCible.x, camCible.z, camCible.y - .3) + .4);
+  cam.position.lerp(camCible, Math.min(1, dt * 12)); cam.lookAt(vise);
   sun.target.position.set(P.x, P.y, P.z); sun.position.copy(SUN_DIR).multiplyScalar(150).add(sun.target.position);
   // décor vivant
   if (n % 2 === 0) waves(t);
