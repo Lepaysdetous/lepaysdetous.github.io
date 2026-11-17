@@ -1212,21 +1212,62 @@ setup(TL0);
     charge.forEach((_, i) => charge[i] = penal[i]);
     autour.sort((u, v) => u.b.place - v.b.place).forEach(o => { const s0 = secteur(o.b.place); let best = s0; for (const d of [-1, 1]) { const s1 = (s0 + d + NR) % NR; if (charge[s1] + 4 < charge[best]) best = s1; } S[best].push(o); charge[best] += tailles[o.k][0] + 2; });
     S.forEach((liste, si) => { if (!liste.length) return; const prof = Math.max(...liste.map(o => tailles[o.k][1]));
-      const ch = charge[si] - penal[si], r = Math.max(13.5 + prof / 2, (ch + 9) / SP); const a0 = rue0 + si * SP + SP / 2; let arc = -ch / 2;
-      for (const o of liste) { const w = tailles[o.k][0] + 2, a = a0 + (arc + w / 2) / r; arc += w; const x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
+      const ch = charge[si] - penal[si] + 2 * liste.length, r = Math.max(13.5 + prof / 2, (ch + 9) / SP + prof / 2), rin = r - prof / 2; const a0 = rue0 + si * SP + SP / 2; let arc = -ch / 2;   // largeurs mesurées au bord intérieur (côté place)
+      for (const o of liste) { const w = tailles[o.k][0] + 4, a = a0 + (arc + w / 2) / rin; arc += w; const x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r;
         delete o.b.place; o.b.pos = [x, z]; o.b.rot = Math.atan2(px - x, pz - z); delete PADDEF[o.b.type || 'boulangerie']; } }); }   // sur le plateau de la ville : pas de socle propre
   if (capitale) scene.remove(capitale); for (const g of speciaux) scene.remove(g); speciaux.length = 0; for (const g of GENS) scene.remove(g); GENS.length = 0;
 }
 setup(TL0);
+// maisons de la ville qui chevauchent un bâtiment ou une autre maison : retirées
+scene.updateMatrixWorld(true);
+if (capitale) { const B = [], boite = o => { const b = new THREE.Box3().setFromObject(o); return b; };
+  for (const g of speciaux) { const m = g.userData.inner && g.userData.inner.children[0]; if (m && !g.userData.monde) B.push(boite(m).expandByScalar(-.5)); }
+  const garder = [];
+  for (const m of [...capitale.children]) { if (!m.isMesh || !(m.userData.d > 0)) continue; const b = boite(m).expandByScalar(-.3); b.min.y = -1e9; b.max.y = 1e9;
+    if (B.some(o => o.intersectsBox(b)) || garder.some(o => o.intersectsBox(b))) { capitale.remove(m); window.RETIRES = (window.RETIRES || 0) + 1; } else garder.push(b); }
+  window.NB_B = B.length; window.NB_G = garder.length;
+}
+for (const o of [city, villA, villB, cloudLayer, pinA, pinB, toi]) o.visible = false;
+for (const g of speciaux) { g.visible = true; g.userData.inner.scale.set(1, 1, 1); }
+
+// ================= RÈGLES DE POSE (jeu) =================
+// 1. Le TERRAIN s'adapte au bâtiment, jamais l'inverse : chaque bâtiment a un socle de terrain plat à sa hauteur de base (y du bâtiment),
+//    sur toute son emprise + 1 m, raccordé en pente douce. 2. Aucun bâtiment ne doit chevaucher un autre (sinon retiré / déplacé).
+// 3. Rien dans l'eau sauf bateau/port. 4. Contrôle automatique au chargement → window.CONTROLE (liste des soucis, doit rester vide).
+const NOM_B = new Map();
+E.batiments.forEach((b, k) => { if (speciaux[k]) NOM_B.set(speciaux[k], b.nom || b.type || 'boulangerie'); });
+function socle(o, base, marge = 1, raccord = 8) { const m = o.isMesh ? o : o.userData.inner && o.userData.inner.children[0]; if (!m || !m.isMesh) return;
+  m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox; if (![bb.min.x, bb.max.x, bb.min.z, bb.max.z].every(isFinite)) return;
+  m.updateWorldMatrix(true, false); const c = new THREE.Vector3((bb.min.x + bb.max.x) / 2, 0, (bb.min.z + bb.max.z) / 2).applyMatrix4(m.matrixWorld), ax = new THREE.Vector3(1, 0, 0).transformDirection(m.matrixWorld), r = Math.atan2(-ax.z, ax.x);
+  PADS.push({ x: c.x, z: c.z, c: Math.cos(r), s: Math.sin(r), cx: 0, cz: 0, hw: (bb.max.x - bb.min.x) / 2 + marge, hd: (bb.max.z - bb.min.z) / 2 + marge, h: base, b: raccord }); }
+for (const g of speciaux) { const b = E.batiments[speciaux.indexOf(g)]; if (!b || g.userData.flotte || g.userData.monde || ['port', 'bateau', 'sentier'].includes(b.type) || PADDEF[b.type]) continue; socle(g, g.position.y); }
+if (capitale) for (const m of capitale.children) if (m.isMesh && m.userData.d > 0) socle(m, m.position.y, .8, 6);
+function controlePose() {
+  const out = [], boites = [];
+  const ajoute = (nom, o, base, eauOk) => { const m = o.isMesh ? o : o.userData.inner && o.userData.inner.children[0]; if (!m || !m.isMesh) return; m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox; if (![bb.min.x, bb.max.x, bb.min.z, bb.max.z].every(isFinite)) return;
+    m.updateWorldMatrix(true, false); const W = m.matrixWorld, pts = [], bas = new THREE.Vector3(0, bb.min.y, 0).applyMatrix4(W).y;
+    for (let k = 0; k < 16; k++) { const t = k / 16, u = t < .25 ? [t * 4, 0] : t < .5 ? [1, (t - .25) * 4] : t < .75 ? [1 - (t - .5) * 4, 1] : [0, 1 - (t - .75) * 4];
+      pts.push(new THREE.Vector3(bb.min.x + (bb.max.x - bb.min.x) * (.04 + .92 * u[0]), 0, bb.min.z + (bb.max.z - bb.min.z) * (.04 + .92 * u[1])).applyMatrix4(W)); }
+    let air = 0, enterre = 0; for (const p of pts) { const h = height(p.x, p.z); if (h < bas - .15) air++; if (h > base + .7) enterre++; }
+    const c = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+    if (air > 2 && !eauOk) out.push([nom, 'en l\'air', air]); if (enterre > 2) out.push([nom, 'enfoncé dans le sol', enterre]); if (!eauOk && height(c.x, c.z) < .3) out.push([nom, 'dans l\'eau']);
+    boites.push({ nom, pts: [0, 4, 8, 12].map(k => pts[k]) }); };
+  for (const g of speciaux) { const b = E.batiments[speciaux.indexOf(g)]; if (!b || g.userData.monde || b.type === 'sentier') continue; ajoute(NOM_B.get(g), g, g.position.y, g.userData.flotte || ['port', 'bateau', 'chantier_naval', 'labo_marin'].includes(b.type)); }
+  if (capitale) capitale.children.forEach((m, k) => { if (m.isMesh && m.userData.d > 0) ajoute('maison de la ville ' + k, m, m.position.y, false); });
+  const sep = (A, B) => { for (const P of [A, B]) for (let i = 0; i < 4; i++) { const a = P[i], b = P[(i + 1) % 4], nx = -(b.z - a.z), nz = b.x - a.x; const pr = Q => Q.map(q => q.x * nx + q.z * nz); const pa = pr(A), pb = pr(B);
+    if (Math.max(...pa) < Math.min(...pb) + .5 || Math.max(...pb) < Math.min(...pa) + .5) return true; } return false; };
+  for (let i = 0; i < boites.length; i++) for (let j = i + 1; j < boites.length; j++) if (!sep(boites[i].pts, boites[j].pts)) out.push([boites[i].nom + ' / ' + boites[j].nom, 'se chevauchent']);
+  return out;
+}
 // bâtiments du bord de mer : une digue de terre relie leur socle à la côte la plus proche (plus d'îlots isolés)
 const DIGUES = [];
 for (const p of PADS) { const rr = Math.max(p.hw, p.hd) + 22; let mer = 0; for (let k = 0; k < 16; k++) if (height0(p.x + Math.cos(k / 16 * 6.283) * rr, p.z + Math.sin(k / 16 * 6.283) * rr) < .5) mer++; if (mer < 5) continue; let best = null;
   for (let k = 0; k < 32; k++) { const a = k / 32 * Math.PI * 2; for (let d = 10; d < 300; d += 4) { const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (height(x, z) > 2.5 && [15, 30, 45].every(e => height0(x + Math.cos(a) * e, z + Math.sin(a) * e) > 2.5)) { if (!best || d < best.d) best = { d, a }; break; } } }
   if (!best) continue; const d2 = best.d + 18, L = [p.x + Math.cos(best.a) * d2, p.z + Math.sin(best.a) * d2];
-  DIGUES.push({ ax: p.x, az: p.z, bx: L[0], bz: L[1], h0: Math.max(1.8, p.h), h1: height(...L), w: Math.max(9, Math.min(p.hw, p.hd) * .8) }); }
+  const e0 = Math.max(p.hw, p.hd) + 1; DIGUES.push({ p, ax: p.x + Math.cos(best.a) * e0, az: p.z + Math.sin(best.a) * e0, bx: L[0], bz: L[1], h0: p.h, h1: height(...L), w: Math.max(9, Math.min(p.hw, p.hd) * .8) }); }
 { const hBase = height; height = (x, z) => { let h = hBase(x, z);
   for (const c of DIGUES) { const vx = c.bx - c.ax, vz = c.bz - c.az, t = Math.max(0, Math.min(1, ((x - c.ax) * vx + (z - c.az) * vz) / (vx * vx + vz * vz))), d = Math.hypot(x - c.ax - vx * t, z - c.az - vz * t);
-    if (d < c.w + 14) { const y = c.h0 + (c.h1 - c.h0) * t, u = Math.max(0, Math.min(1, (c.w + 14 - d) / 14)), k = u * u * (3 - 2 * u); h = Math.max(h, h + (y - h) * k); } }
+    if (d < c.w + 14 && !PADS.some(p => { const dx = x - p.x, dz = z - p.z, lx = dx * p.c - dz * p.s - p.cx, lz = dx * p.s + dz * p.c - p.cz; return Math.abs(lx) < p.hw + 1 && Math.abs(lz) < p.hd + 1; })) { const y = c.h0 + (c.h1 - c.h0) * t, u = Math.max(0, Math.min(1, (c.w + 14 - d) / 14)), k = u * u * (3 - 2 * u); h = Math.max(h, h + (y - h) * k); } }
   return h; }; }
 // ---- le sol : grille de 481×481 points (2,7 m), découpée en 8×8 morceaux (seuls ceux à l'écran sont dessinés) ----
 const SOL3D = new THREE.Group(); scene.add(SOL3D);
@@ -1242,17 +1283,6 @@ const SOL3D = new THREE.Group(); scene.add(SOL3D);
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setIndex(idx); g.computeBoundingSphere();
     const m = new THREE.Mesh(g, terrain.material); m.receiveShadow = true; SOL3D.add(m); }
 }
-// maisons de la ville qui chevauchent un bâtiment ou une autre maison : retirées
-if (capitale) { const B = [], boite = o => { const b = new THREE.Box3().setFromObject(o); return b; };
-  for (const g of speciaux) { const m = g.userData.inner && g.userData.inner.children[0]; if (m && !g.userData.monde) B.push(boite(m).expandByScalar(-.5)); }
-  const garder = [];
-  for (const m of [...capitale.children]) { if (!m.isMesh || !(m.userData.d > 0)) continue; const b = boite(m).expandByScalar(-.3); b.min.y = -1e9; b.max.y = 1e9;
-    if (B.some(o => o.intersectsBox(b)) || garder.some(o => o.intersectsBox(b))) { capitale.remove(m); window.RETIRES = (window.RETIRES || 0) + 1; } else garder.push(b); }
-  window.NB_B = B.length; window.NB_G = garder.length;
-}
-for (const o of [city, villA, villB, cloudLayer, pinA, pinB, toi]) o.visible = false;
-for (const g of speciaux) { g.visible = true; g.userData.inner.scale.set(1, 1, 1); }
-
 // ================= Les Hauts de Plavulca : maisons achetées, code EXACT de la boutique =================
 const parcelle = window.fabriqueBoutique(THREE, renderer);
 sansArbres(HAUTS.x, HAUTS.z, 85);
@@ -1673,6 +1703,7 @@ function boucle(now) {
   if (n === 2) $('charge').classList.add('cache');
   requestAnimationFrame(boucle);
 }
+window.CONTROLE = controlePose(); if (window.CONTROLE.length) console.warn('Règles de pose :', JSON.stringify(window.CONTROLE));
 window.T_CHARGE = performance.now();
 requestAnimationFrame(boucle);
 window.JEU = { P, tp, renderer, place, height, DIGUES, height0: (x, z) => height0(x, z), get pads() { return PADS.map(p => [+p.x.toFixed(0), +p.z.toFixed(0), +p.hw.toFixed(1), +p.hd.toFixed(1), +p.h.toFixed(1)]); }, PADDEF, murs: (x, z) => { const i = ci(x), j = ci(z), c = chunk(i, j); if (!c) return []; const b = ((j & 31) * CH + (i & 31)) * NW * 2, f = ((j & 31) * CH + (i & 31)) * NF; return [[...c.w.slice(b, b + 6)].map(v => v / 20), [...c.f.slice(f, f + 4)].map(v => v / 20)]; }, LOTS, CHEMINS, sol, bloque, hauts, get chunks() { return CHK.size; }, set yaw(v) { yaw = v; }, set pitch(v) { pitch = v; }, set dist(v) { dist = v; } };
